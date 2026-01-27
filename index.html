@@ -14,147 +14,22 @@
         <div class="header-stats">
             <div class="stat-item">
                 <span class="stat-label">Pendientes de Aprobar</span>
-                <span class="stat-value">124 Productos</span>
+                <span class="stat-value" id="pending-count">Cargando...</span>
             </div>
             <div class="stat-item">
                 <span class="stat-label">Última Carga</span>
-                <span class="stat-value">27/01/2026 14:30</span>
+                <span class="stat-value" id="last-update">--</span>
             </div>
         </div>
     </header>
 
     <div class="container">
         <div class="grid" id="product-grid">
-            <!-- Mock Product Card 1 -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="product-sku">SKU: APPLE-MBP-14-M3</span>
-                    <h2 class="product-title">MacBook Pro 14" M3 Chip 8GB RAM 512GB SSD Space Gray</h2>
-                    <div class="margin-stat">
-                        <span class="margin-label">Margen:</span>
-                        <span class="margin-value">+ 15%</span>
-                    </div>
-                </div>
-
-                <div class="prices-container">
-                    <div class="price-box">
-                        <span class="price-label">Precio Amazon (Nuevo)</span>
-                        <div class="current-price">$1,499.00</div>
-                        <div class="current-price-local">S/ 5,699.00</div>
-                    </div>
-                    <div class="price-box">
-                        <span class="price-label">Precio UnaLuka (Actual)</span>
-                        <div class="old-price">$1,599.00</div>
-                        <div class="old-price-local">S/ 6,099.00</div>
-                    </div>
-                </div>
-
-                <div class="actions">
-                    <button class="btn btn-reject">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Rechazar
-                    </button>
-                    <button class="btn btn-accept">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Aprobar cambio
-                    </button>
-                </div>
-            </div>
-
-            <!-- Mock Product Card 2 -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="product-sku">SKU: SONY-WH1000XM5-BLK</span>
-                    <h2 class="product-title">Sony WH-1000XM5 Wireless Noise Canceling Headphones</h2>
-                    <div class="margin-stat">
-                        <span class="margin-label">Margen:</span>
-                        <span class="margin-value">+ 22%</span>
-                    </div>
-                </div>
-
-                <div class="prices-container">
-                    <div class="price-box">
-                        <span class="price-label">Precio Amazon (Nuevo)</span>
-                        <div class="current-price">$348.00</div>
-                        <div class="current-price-local">S/ 1,325.00</div>
-                    </div>
-                    <div class="price-box">
-                        <span class="price-label">Precio UnaLuka (Actual)</span>
-                        <div class="old-price">$399.00</div>
-                        <div class="old-price-local">S/ 1,519.00</div>
-                    </div>
-                </div>
-
-                <div class="actions">
-                    <button class="btn btn-reject">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Rechazar
-                    </button>
-                    <button class="btn btn-accept">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Aprobar cambio
-                    </button>
-                </div>
-            </div>
-
-            <!-- Mock Product Card 3 (Negative Margin) -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="product-sku">SKU: JBL-FLIP6-RED</span>
-                    <h2 class="product-title">JBL Flip 6 Portable Waterproof Bluetooth Speaker - Red</h2>
-                    <div class="margin-stat">
-                        <span class="margin-label">Margen:</span>
-                        <span class="margin-value negative">- 5%</span>
-                    </div>
-                </div>
-
-                <div class="prices-container">
-                    <div class="price-box">
-                        <span class="price-label">Precio Amazon (Nuevo)</span>
-                        <div class="current-price">$89.95</div>
-                        <div class="current-price-local">S/ 342.00</div>
-                    </div>
-                    <div class="price-box">
-                        <span class="price-label">Precio UnaLuka (Actual)</span>
-                        <div class="old-price">$129.95</div>
-                        <div class="old-price-local">S/ 494.00</div>
-                    </div>
-                </div>
-
-                <div class="actions">
-                    <button class="btn btn-reject">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Rechazar
-                    </button>
-                    <button class="btn btn-accept">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Aprobar cambio
-                    </button>
-                </div>
-            </div>
+            <!-- Cards will be rendered dynamically by app.js -->
         </div>
     </div>
+
+    <script src="app.js"></script>
 </body>
 
 </html>

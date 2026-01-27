@@ -269,3 +269,215 @@ header h1 {
         grid-template-columns: 1fr;
     }
 }
+
+/* ============ PERFORMANCE OPTIMIZATIONS ============ */
+
+/* Virtual Scroll Spacers */
+#top-spacer,
+#bottom-spacer {
+    grid-column: 1 / -1;
+    pointer-events: none;
+}
+
+/* Cards Container - uses display:contents to not interfere with grid */
+#cards-container {
+    display: contents;
+}
+
+/* GPU Accelerated Cards - extends .card */
+.card {
+    contain: layout style paint;
+    content-visibility: auto;
+    contain-intrinsic-size: 0 280px;
+}
+
+/* Smooth Exit Animations */
+.card.approved-exit {
+    animation: slideOutRight 0.3s ease-out forwards;
+}
+
+.card.rejected-exit {
+    animation: slideOutLeft 0.3s ease-out forwards;
+}
+
+@keyframes slideOutRight {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+}
+
+@keyframes slideOutLeft {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateX(-100px);
+    }
+}
+
+/* Loading States */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--color-text-secondary);
+}
+
+.loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--color-border);
+    border-top-color: var(--color-primary-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Button Disabled State */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+
+    .card,
+    .card.approved-exit,
+    .card.rejected-exit {
+        animation: none;
+        transition: none;
+    }
+
+    html {
+        scroll-behavior: auto;
+    }
+}
+
+/* ============ TOAST NOTIFICATIONS ============ */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-radius: 10px;
+    background: #333;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transform: translateX(120%);
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: auto;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.toast-error {
+    background: linear-gradient(135deg, #dc3545 0%, #f30b0b 100%);
+}
+
+.toast-icon {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* ============ UNDO BUTTON ============ */
+.btn-undo {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    background: var(--color-primary-blue);
+    color: white;
+    font-family: var(--font-main);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0, 98, 189, 0.3);
+    transition: all 0.3s ease;
+    z-index: 9998;
+}
+
+.btn-undo:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 98, 189, 0.4);
+}
+
+.btn-undo.hidden {
+    opacity: 0;
+    transform: translateY(100px);
+    pointer-events: none;
+}
+
+/* Mobile adjustments for toasts and undo */
+@media (max-width: 768px) {
+    #toast-container {
+        left: 20px;
+        right: 20px;
+        bottom: 80px;
+    }
+
+    .toast {
+        transform: translateY(120%);
+    }
+
+    .toast.show {
+        transform: translateY(0);
+    }
+
+    .btn-undo {
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .btn-undo.hidden {
+        transform: translateX(-50%) translateY(100px);
+    }
+}
