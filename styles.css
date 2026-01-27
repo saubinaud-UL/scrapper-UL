@@ -1,0 +1,271 @@
+/* Unaluka Design System - Approvals Frontend */
+
+@import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,100..900;1,100..900&display=swap');
+
+:root {
+    --color-primary-red: #F30B0B;
+    --color-primary-blue: #0062BD;
+    --color-text-main: #333333;
+    --color-text-secondary: #666666;
+    --color-border: #EAEAEA;
+    --color-bg: #FFFFFF;
+    --color-success: #28a745;
+    /* Standard success green */
+    --color-danger: #dc3545;
+    /* Standard danger red for contrast if needed, or use primary-red */
+    --font-main: 'Archivo', sans-serif;
+    --shadow-card: 0 2px 5px rgba(0, 0, 0, 0.1);
+    --shadow-hover: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: #F7F9FB;
+    /* Light grey background for contrast with white cards */
+    color: var(--color-text-main);
+    margin: 0;
+    padding: 0;
+}
+
+/* Header */
+header {
+    background-color: var(--color-primary-red);
+    height: auto;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 30px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+header h1 {
+    color: white;
+    font-weight: 700;
+    font-size: 24px;
+    margin: 0;
+}
+
+.header-stats {
+    display: flex;
+    gap: 20px;
+    color: white;
+    font-size: 14px;
+    align-items: center;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.stat-label {
+    opacity: 0.8;
+    font-size: 12px;
+}
+
+.stat-value {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+/* Main Container */
+.container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+}
+
+/* Card Styles */
+.card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 24px;
+    /* Increased padding */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--color-primary-blue);
+}
+
+/* Card Header: Product Info */
+.card-header {
+    margin-bottom: 20px;
+}
+
+.product-sku {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.product-title {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin: 0 0 12px 0;
+    color: var(--color-text-main);
+}
+
+/* Prices Section */
+.prices-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    /* Increased separation */
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.logo {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+}
+
+.price-box {
+    text-align: left;
+}
+
+.price-label {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.current-price {
+    font-size: 24px;
+    /* Larger */
+    font-weight: 700;
+    color: var(--color-primary-blue);
+    display: block;
+}
+
+.current-price-local {
+    font-size: 16px;
+    color: var(--color-text-main);
+    font-weight: 500;
+}
+
+.old-price {
+    font-size: 24px;
+    /* Larger, same size as new price */
+    font-weight: 400;
+    /* Regular weight to distinguish */
+    color: var(--color-text-main);
+    /* Standard color, not greyed out */
+    text-decoration: none;
+    /* REMOVED STRIKETHROUGH */
+    display: block;
+}
+
+.old-price-local {
+    font-size: 16px;
+    color: var(--color-text-secondary);
+}
+
+/* Margin Indicator - Redesigned */
+.margin-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+
+.margin-label {
+    color: var(--color-text-secondary);
+    font-weight: 500;
+}
+
+.margin-value {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--color-success);
+}
+
+.margin-value.negative {
+    color: var(--color-primary-red);
+}
+
+/* Action Buttons */
+.actions {
+    display: flex;
+    gap: 12px;
+    margin-top: auto;
+}
+
+.btn {
+    flex: 1;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-family: var(--font-main);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-accept {
+    background-color: var(--color-success);
+    color: white;
+}
+
+.btn-accept:hover {
+    background-color: #218838;
+}
+
+.btn-reject {
+    background-color: white;
+    border: 1px solid var(--color-primary-red);
+    color: var(--color-primary-red);
+}
+
+.btn-reject:hover {
+    background-color: #FFF5F5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}
