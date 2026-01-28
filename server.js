@@ -6,6 +6,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,8 +20,294 @@ app.use(express.static(path.join(__dirname)));
 // Easy to replace with PostgreSQL 17 later
 const db = {
     products: new Map(),
-    decisions: []
+    decisions: [],
+    sessions: new Map() // Active sessions
 };
+
+// ============ USERS (In-memory, can migrate to DB) ============
+const users = [
+    {
+        id: 1,
+        email: 'admin@unaluka.com',
+        password: 'unaluka2026',
+        name: 'Admin',
+        role: 'admin',
+        mustChangePassword: false
+    }
+];
+
+let nextUserId = 2;
+
+// ============ AUTH HELPERS ============
+function generateToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+function generateTempPassword() {
+    // Generate a readable temporary password like "TempXXXX"
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let password = 'Temp';
+    for (let i = 0; i < 6; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+}
+
+function findUserByEmail(email) {
+    return users.find(u => u.email.toLowerCase() === email.toLowerCase());
+}
+
+function findUserById(id) {
+    return users.find(u => u.id === id);
+}
+
+function validateSession(token) {
+    const session = db.sessions.get(token);
+    if (!session) return null;
+
+    // Check if session expired (24 hours)
+    if (Date.now() > session.expiresAt) {
+        db.sessions.delete(token);
+        return null;
+    }
+
+    return session;
+}
+
+// ============ AUTH MIDDLEWARE ============
+function authMiddleware(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const session = validateSession(token);
+
+    if (!session) {
+        return res.status(401).json({ error: 'Sesión inválida o expirada' });
+    }
+
+    req.user = session.user;
+    next();
+}
+// ============ SESSION CONFIGURATION ============
+const SESSION_DURATION_DEFAULT = 8 * 60 * 60 * 1000;  // 8 hours (normal session)
+const SESSION_DURATION_REMEMBER = 24 * 60 * 60 * 1000; // 24 hours (remember me)
+
+// ============ AUTH ENDPOINTS ============
+
+/**
+ * POST /api/login
+ * Authenticate user and return session token
+ */
+app.post('/api/login', (req, res) => {
+    const { email, password, remember } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    }
+
+    const user = findUserByEmail(email);
+
+    if (!user || user.password !== password) {
+        return res.status(401).json({ error: 'Credenciales incorrectas' });
+    }
+
+    // Create session with appropriate duration
+    const duration = remember ? SESSION_DURATION_REMEMBER : SESSION_DURATION_DEFAULT;
+    const token = generateToken();
+    const expiresAt = Date.now() + duration;
+
+    const session = {
+        token,
+        user: { id: user.id, email: user.email, name: user.name, role: user.role },
+        createdAt: Date.now(),
+        expiresAt,
+        remember: !!remember
+    };
+
+    db.sessions.set(token, session);
+
+    const hoursRemaining = Math.round(duration / (60 * 60 * 1000));
+    console.log(`🔐 User logged in: ${user.email} (session: ${hoursRemaining}h)`);
+
+    res.json({
+        success: true,
+        token,
+        user: session.user,
+        expiresAt,
+        expiresIn: duration,
+        mustChangePassword: user.mustChangePassword || false
+    });
+});
+
+/**
+ * GET /api/verify
+ * Verify if session token is valid
+ */
+app.get('/api/verify', (req, res) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ valid: false });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const session = validateSession(token);
+
+    if (!session) {
+        return res.status(401).json({ valid: false });
+    }
+
+    res.json({ valid: true, user: session.user });
+});
+
+/**
+ * POST /api/logout
+ * Invalidate session token
+ */
+app.post('/api/logout', (req, res) => {
+    const authHeader = req.headers.authorization;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        db.sessions.delete(token);
+    }
+
+    res.json({ success: true });
+});
+
+// ============ USER MANAGEMENT ENDPOINTS ============
+
+/**
+ * POST /api/users
+ * Create a new user (admin only)
+ * Returns temporary password
+ */
+app.post('/api/users', authMiddleware, (req, res) => {
+    // Check if admin
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Solo administradores pueden crear usuarios' });
+    }
+
+    const { email, name } = req.body;
+
+    if (!email || !name) {
+        return res.status(400).json({ error: 'Email y nombre son requeridos' });
+    }
+
+    // Check if email already exists
+    if (findUserByEmail(email)) {
+        return res.status(400).json({ error: 'El correo ya está registrado' });
+    }
+
+    // Generate temporary password
+    const tempPassword = generateTempPassword();
+
+    const newUser = {
+        id: nextUserId++,
+        email: email.toLowerCase().trim(),
+        name: name.trim(),
+        password: tempPassword,
+        role: 'user',
+        mustChangePassword: true,
+        createdAt: new Date().toISOString(),
+        createdBy: req.user.id
+    };
+
+    users.push(newUser);
+
+    console.log(`👤 New user created: ${newUser.email} by ${req.user.email}`);
+
+    res.json({
+        success: true,
+        user: {
+            id: newUser.id,
+            email: newUser.email,
+            name: newUser.name,
+            role: newUser.role
+        },
+        tempPassword
+    });
+});
+
+/**
+ * GET /api/users
+ * List all users (admin only)
+ */
+app.get('/api/users', authMiddleware, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Solo administradores pueden ver usuarios' });
+    }
+
+    const usersList = users.map(u => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        mustChangePassword: u.mustChangePassword || false,
+        createdAt: u.createdAt
+    }));
+
+    res.json(usersList);
+});
+
+/**
+ * DELETE /api/users/:id
+ * Delete a user (admin only, cannot delete self)
+ */
+app.delete('/api/users/:id', authMiddleware, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Solo administradores pueden eliminar usuarios' });
+    }
+
+    const userId = parseInt(req.params.id);
+
+    if (userId === req.user.id) {
+        return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta' });
+    }
+
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const deletedUser = users.splice(userIndex, 1)[0];
+    console.log(`🗑️ User deleted: ${deletedUser.email} by ${req.user.email}`);
+
+    res.json({ success: true });
+});
+
+/**
+ * POST /api/change-password
+ * Change user's own password
+ */
+app.post('/api/change-password', authMiddleware, (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+    }
+
+    const user = findUserById(req.user.id);
+    if (!user) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // If not changing from temp password, verify current password
+    if (!user.mustChangePassword && user.password !== currentPassword) {
+        return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+    }
+
+    user.password = newPassword;
+    user.mustChangePassword = false;
+
+    console.log(`🔑 Password changed: ${user.email}`);
+
+    res.json({ success: true, message: 'Contraseña actualizada correctamente' });
+});
 
 // ============ API ENDPOINTS ============
 
@@ -132,6 +419,78 @@ app.get('/api/decisions', (req, res) => {
             };
         });
         res.json(decisionsWithProducts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/export/approvals
+ * Export today's approved decisions as CSV for marketplace upload
+ */
+app.get('/api/export/approvals', (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Filter only approved decisions from today
+        const todayApprovals = db.decisions
+            .filter(d => {
+                const decisionDate = new Date(d.decided_at);
+                decisionDate.setHours(0, 0, 0, 0);
+                return d.decision === 'approved' && decisionDate.getTime() === today.getTime();
+            })
+            .map(d => {
+                const product = db.products.get(d.sku);
+                return {
+                    sku: d.sku,
+                    name: product?.name || '',
+                    current_price_usd: product?.current_price_usd || 0,
+                    competitor_price_usd: product?.competitor_price_usd || 0,
+                    new_price_usd: product?.competitor_price_usd || 0, // New price = competitor price
+                    current_price_local: product?.current_price_local || 0,
+                    competitor_price_local: product?.competitor_price_local || 0,
+                    margin_percentage: product?.margin_percentage || 0,
+                    decided_at: d.decided_at
+                };
+            });
+
+        // Check if user wants JSON or CSV
+        const format = req.query.format || 'csv';
+
+        if (format === 'json') {
+            return res.json({
+                date: today.toISOString().split('T')[0],
+                count: todayApprovals.length,
+                approvals: todayApprovals
+            });
+        }
+
+        // Generate CSV
+        const headers = ['SKU', 'Producto', 'Precio Actual USD', 'Precio Amazon USD', 'Nuevo Precio USD', 'Precio Actual PEN', 'Precio Amazon PEN', 'Margen %', 'Fecha Aprobación'];
+        const csvRows = [headers.join(',')];
+
+        for (const item of todayApprovals) {
+            csvRows.push([
+                `"${item.sku}"`,
+                `"${item.name.replace(/"/g, '""')}"`,
+                item.current_price_usd.toFixed(2),
+                item.competitor_price_usd.toFixed(2),
+                item.new_price_usd.toFixed(2),
+                item.current_price_local.toFixed(2),
+                item.competitor_price_local.toFixed(2),
+                item.margin_percentage.toFixed(1),
+                `"${item.decided_at}"`
+            ].join(','));
+        }
+
+        const csv = csvRows.join('\n');
+        const filename = `aprobaciones_${today.toISOString().split('T')[0]}.csv`;
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send('\uFEFF' + csv); // BOM for Excel UTF-8 compatibility
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
