@@ -308,22 +308,11 @@
     function setupExportButton() {
         if (!btnExport) return;
 
-        btnExport.addEventListener('click', async () => {
-            try {
-                // Trigger download by opening the CSV endpoint
-                const link = document.createElement('a');
-                link.href = `${API_BASE}/export/approvals`;
-                link.download = `aprobaciones_${new Date().toISOString().split('T')[0]}.csv`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                showToast(`Exportando ${exportCountEl?.textContent || 0} aprobaciones del día`, 'success');
-            } catch (error) {
-                console.error('Error exporting:', error);
-                showToast('Error al exportar', 'error');
-            }
+        btnExport.addEventListener('click', () => {
+            openExportModal();
         });
+
+        setupExportModal();
     }
 
     // Update export count after each approval
@@ -352,7 +341,10 @@
         try {
             const response = await fetch(`${API_BASE}/decisions`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({ sku, decision })
             });
 
@@ -1005,6 +997,94 @@
             });
             updateSelectionUI();
         }
+    }
+
+    // ============ EXPORT MODAL LOGIC ============
+    const exportModal = document.getElementById('export-modal');
+    const btnCloseExport = document.getElementById('btn-close-export');
+    const btnCancelExport = document.getElementById('btn-cancel-export');
+    const btnDoExport = document.getElementById('btn-do-export');
+    const exportStart = document.getElementById('export-start');
+    const exportEnd = document.getElementById('export-end');
+    const presetBtns = document.querySelectorAll('.btn-preset');
+
+    function setupExportModal() {
+        if (!exportModal) return;
+
+        [btnCloseExport, btnCancelExport].forEach(btn => {
+            if (btn) btn.addEventListener('click', () => exportModal.classList.remove('show'));
+        });
+
+        if (presetBtns) {
+            presetBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    // Update active state
+                    presetBtns.forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+
+                    // Set dates
+                    const range = e.target.dataset.range;
+                    setExportDates(range);
+                });
+            });
+        }
+
+        if (btnDoExport) {
+            btnDoExport.addEventListener('click', handleExport);
+        }
+    }
+
+    function openExportModal() {
+        if (!exportModal) return;
+
+        // Reset to "Today" by default
+        setExportDates('today');
+        presetBtns.forEach(b => {
+            b.classList.toggle('active', b.dataset.range === 'today');
+        });
+
+        exportModal.classList.add('show');
+    }
+
+    function setExportDates(range) {
+        const today = new Date();
+        const endDate = today.toISOString().split('T')[0];
+        let startDate = endDate;
+
+        if (range === '7days') {
+            const past = new Date(today);
+            past.setDate(today.getDate() - 7);
+            startDate = past.toISOString().split('T')[0];
+        } else if (range === 'month') {
+            const past = new Date(today);
+            past.setMonth(today.getMonth() - 1);
+            startDate = past.toISOString().split('T')[0];
+        }
+
+        if (exportStart) exportStart.value = startDate;
+        if (exportEnd) exportEnd.value = endDate;
+    }
+
+    function handleExport() {
+        const start = exportStart.value;
+        const end = exportEnd.value;
+
+        if (!start || !end) {
+            showToast('Por favor selecciona un rango de fechas', 'error');
+            return;
+        }
+
+        exportModal.classList.remove('show');
+
+        // Trigger download
+        const link = document.createElement('a');
+        link.href = `${API_BASE}/export/approvals?startDate=${start}&endDate=${end}`;
+        link.download = `aprobaciones_${start}_${end}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showToast('Descarga iniciada', 'success');
     }
 
     // ============ START ============
