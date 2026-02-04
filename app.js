@@ -148,9 +148,55 @@
         setupUndoButton();
         setupBulkActions();
         setupDragSelection();
+        setupDragSelection();
         setupFilterControl();
         setupExportButton();
+        setupApplyChangesButton();
         hideLoadingState();
+    }
+
+    function setupApplyChangesButton() {
+        const btnApply = document.getElementById('btn-apply-changes');
+        if (!btnApply) return;
+
+        btnApply.addEventListener('click', async () => {
+            if (!confirm('¿Estás seguro de que deseas aplicar los cambios? Esto enviará todos los productos aprobados al sistema externo.')) {
+                return;
+            }
+
+            try {
+                btnApply.disabled = true;
+                btnApply.innerHTML = 'Enviando...';
+
+                const response = await fetch(`${API_BASE}/webhook/publish`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(`Éxito: ${result.count} productos enviados`, 'success');
+                } else {
+                    showToast(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error applying changes:', error);
+                showToast('Error de conexión al aplicar cambios', 'error');
+            } finally {
+                btnApply.disabled = false;
+                btnApply.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg>
+                    <span>Aplicar Cambios</span>
+                `;
+            }
+        });
     }
 
     function setupUserMenu() {
@@ -210,7 +256,14 @@
         // Clear selection when filter changes
         selectedSkus.clear();
         updateSelectionUI();
+        updatePendingCountUI();
         renderVisibleRows();
+    }
+
+    function updatePendingCountUI() {
+        if (pendingCount) {
+            pendingCount.textContent = `${products.length} Productos`;
+        }
     }
 
     function setupFilterControl() {
@@ -308,22 +361,11 @@
     function setupExportButton() {
         if (!btnExport) return;
 
-        btnExport.addEventListener('click', async () => {
-            try {
-                // Trigger download by opening the CSV endpoint
-                const link = document.createElement('a');
-                link.href = `${API_BASE}/export/approvals`;
-                link.download = `aprobaciones_${new Date().toISOString().split('T')[0]}.csv`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                showToast(`Exportando ${exportCountEl?.textContent || 0} aprobaciones del día`, 'success');
-            } catch (error) {
-                console.error('Error exporting:', error);
-                showToast('Error al exportar', 'error');
-            }
+        btnExport.addEventListener('click', () => {
+            openExportModal();
         });
+
+        setupExportModal();
     }
 
     // Update export count after each approval
@@ -337,7 +379,11 @@
             const stats = await response.json();
 
             if (pendingCount) {
-                pendingCount.textContent = `${stats.pending_count} Productos`;
+                // Only update if we haven't loaded products yet (initial load)
+                // Otherwise trust the client-side count which reflects filters
+                if (products.length === 0 && allProducts.length === 0) {
+                    pendingCount.textContent = `${stats.pending_count} Productos`;
+                }
             }
             if (lastUpdate && stats.last_update) {
                 const date = new Date(stats.last_update);
@@ -352,7 +398,10 @@
         try {
             const response = await fetch(`${API_BASE}/decisions`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({ sku, decision })
             });
 
@@ -361,6 +410,13 @@
                 if (index > -1) {
                     const removedProduct = products[index];
                     products.splice(index, 1);
+
+                    // Remove from master list too
+                    const masterIndex = allProducts.findIndex(p => p.sku === sku);
+                    if (masterIndex > -1) {
+                        allProducts.splice(masterIndex, 1);
+                    }
+
                     selectedSkus.delete(sku);
 
                     // Solo guardar para undo si no es parte de una acción en lote
@@ -377,6 +433,8 @@
                     if (decision === 'approved') {
                         updateExportCount();
                     }
+
+                    updatePendingCountUI();
 
                     return removedProduct;
                 }
@@ -876,14 +934,18 @@
 
             if (allSuccess) {
                 // Re-agregar todos los productos
-                lastAction.products.forEach(product => {
-                    products.unshift(product);
-                });
+                const restoredProducts = lastAction.products;
 
-                renderVisibleRows();
+                // Agregar al inicio de allProducts también para persistencia
+                allProducts.unshift(...restoredProducts);
+
+                // Re-aplicar filtro para determinar visibilidad y actualizar contadores
+                applyFilter();
+
+                // loadStats solo para actualizar timestamp
                 loadStats();
 
-                const count = lastAction.products.length;
+                const count = restoredProducts.length;
                 if (count === 1) {
                     showToast(`Deshecho: ${lastAction.products[0].sku} volvió a pendientes`, 'success');
                 } else {
@@ -1005,6 +1067,94 @@
             });
             updateSelectionUI();
         }
+    }
+
+    // ============ EXPORT MODAL LOGIC ============
+    const exportModal = document.getElementById('export-modal');
+    const btnCloseExport = document.getElementById('btn-close-export');
+    const btnCancelExport = document.getElementById('btn-cancel-export');
+    const btnDoExport = document.getElementById('btn-do-export');
+    const exportStart = document.getElementById('export-start');
+    const exportEnd = document.getElementById('export-end');
+    const presetBtns = document.querySelectorAll('.btn-preset');
+
+    function setupExportModal() {
+        if (!exportModal) return;
+
+        [btnCloseExport, btnCancelExport].forEach(btn => {
+            if (btn) btn.addEventListener('click', () => exportModal.classList.remove('show'));
+        });
+
+        if (presetBtns) {
+            presetBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    // Update active state
+                    presetBtns.forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+
+                    // Set dates
+                    const range = e.target.dataset.range;
+                    setExportDates(range);
+                });
+            });
+        }
+
+        if (btnDoExport) {
+            btnDoExport.addEventListener('click', handleExport);
+        }
+    }
+
+    function openExportModal() {
+        if (!exportModal) return;
+
+        // Reset to "Today" by default
+        setExportDates('today');
+        presetBtns.forEach(b => {
+            b.classList.toggle('active', b.dataset.range === 'today');
+        });
+
+        exportModal.classList.add('show');
+    }
+
+    function setExportDates(range) {
+        const today = new Date();
+        const endDate = today.toISOString().split('T')[0];
+        let startDate = endDate;
+
+        if (range === '7days') {
+            const past = new Date(today);
+            past.setDate(today.getDate() - 7);
+            startDate = past.toISOString().split('T')[0];
+        } else if (range === 'month') {
+            const past = new Date(today);
+            past.setMonth(today.getMonth() - 1);
+            startDate = past.toISOString().split('T')[0];
+        }
+
+        if (exportStart) exportStart.value = startDate;
+        if (exportEnd) exportEnd.value = endDate;
+    }
+
+    function handleExport() {
+        const start = exportStart.value;
+        const end = exportEnd.value;
+
+        if (!start || !end) {
+            showToast('Por favor selecciona un rango de fechas', 'error');
+            return;
+        }
+
+        exportModal.classList.remove('show');
+
+        // Trigger download
+        const link = document.createElement('a');
+        link.href = `${API_BASE}/export/approvals?startDate=${start}&endDate=${end}`;
+        link.download = `aprobaciones_${start}_${end}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showToast('Descarga iniciada', 'success');
     }
 
     // ============ START ============

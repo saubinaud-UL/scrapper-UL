@@ -376,7 +376,7 @@ app.get('/api/stats', (req, res) => {
  * POST /api/decisions
  * Record user decision (approve/reject)
  */
-app.post('/api/decisions', (req, res) => {
+app.post('/api/decisions', authMiddleware, (req, res) => {
     const { sku, decision } = req.body;
 
     if (!sku || !decision) {
@@ -394,7 +394,8 @@ app.post('/api/decisions', (req, res) => {
             db.decisions.push({
                 sku,
                 decision,
-                decided_at: new Date().toISOString()
+                decided_at: new Date().toISOString(),
+                approved_by: req.user.name // Capture user name
             });
         }
         res.json({ success: true, sku, decision });
@@ -430,62 +431,92 @@ app.get('/api/decisions', (req, res) => {
  */
 app.get('/api/export/approvals', (req, res) => {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const { startDate, endDate } = req.query;
+        let start, end;
 
-        // Filter only approved decisions from today
-        const todayApprovals = db.decisions
-            .filter(d => {
-                const decisionDate = new Date(d.decided_at);
-                decisionDate.setHours(0, 0, 0, 0);
-                return d.decision === 'approved' && decisionDate.getTime() === today.getTime();
-            })
-            .map(d => {
-                const product = db.products.get(d.sku);
-                return {
-                    sku: d.sku,
-                    name: product?.name || '',
-                    current_price_usd: product?.current_price_usd || 0,
-                    competitor_price_usd: product?.competitor_price_usd || 0,
-                    new_price_usd: product?.competitor_price_usd || 0, // New price = competitor price
-                    current_price_local: product?.current_price_local || 0,
-                    competitor_price_local: product?.competitor_price_local || 0,
-                    margin_percentage: product?.margin_percentage || 0,
-                    decided_at: d.decided_at
-                };
-            });
+        // Helper to create date from YYYY-MM-DD in local time
+        const parseLocal = (dateStr) => {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        };
+
+        if (startDate) {
+            start = parseLocal(startDate);
+            start.setHours(0, 0, 0, 0);
+        } else {
+            start = new Date();
+            start.setHours(0, 0, 0, 0);
+        }
+
+        if (endDate) {
+            end = parseLocal(endDate);
+            end.setHours(23, 59, 59, 999);
+        } else {
+            end = new Date();
+            end.setHours(23, 59, 59, 999);
+        }
+
+        // Filter only approved decisions within range
+        const approvedDecisions = db.decisions.filter(d => {
+            const decisionDate = new Date(d.decided_at);
+            return d.decision === 'approved' &&
+                decisionDate >= start &&
+                decisionDate <= end;
+        });
+
+        const exportItems = approvedDecisions.map(d => {
+            const product = db.products.get(d.sku);
+            return {
+                sku: d.sku,
+                name: product?.name || '',
+                new_price_usd: product?.competitor_price_usd || 0,
+                new_price_local: product?.competitor_price_local || 0,
+                margin_percentage: product?.margin_percentage || 0,
+                decided_at: d.decided_at,
+                approved_by: d.approved_by || 'Sistema'
+            };
+        });
 
         // Check if user wants JSON or CSV
         const format = req.query.format || 'csv';
 
         if (format === 'json') {
             return res.json({
-                date: today.toISOString().split('T')[0],
-                count: todayApprovals.length,
-                approvals: todayApprovals
+                range: { start: start.toISOString(), end: end.toISOString() },
+                count: exportItems.length,
+                approvals: exportItems
             });
         }
 
         // Generate CSV
-        const headers = ['SKU', 'Producto', 'Precio Actual USD', 'Precio Amazon USD', 'Nuevo Precio USD', 'Precio Actual PEN', 'Precio Amazon PEN', 'Margen %', 'Fecha Aprobación'];
+        // Columns: SKU, Producto, Precio nuevo USD, Precio nuevo PEN, Margen, Fecha de aprobación, Encargado de aprobación
+        const headers = ['SKU', 'Producto', 'Precio nuevo USD', 'Precio nuevo PEN', 'Margen', 'Fecha aprobación', 'Encargado'];
         const csvRows = [headers.join(',')];
 
-        for (const item of todayApprovals) {
+        for (const item of exportItems) {
+            const date = new Date(item.decided_at);
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            const formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
+
             csvRows.push([
                 `"${item.sku}"`,
                 `"${item.name.replace(/"/g, '""')}"`,
-                item.current_price_usd.toFixed(2),
-                item.competitor_price_usd.toFixed(2),
                 item.new_price_usd.toFixed(2),
-                item.current_price_local.toFixed(2),
-                item.competitor_price_local.toFixed(2),
-                item.margin_percentage.toFixed(1),
-                `"${item.decided_at}"`
+                item.new_price_local.toFixed(2),
+                `${item.margin_percentage.toFixed(1)}%`,
+                `"${formattedDate}"`,
+                `"${item.approved_by}"`
             ].join(','));
         }
 
         const csv = csvRows.join('\n');
-        const filename = `aprobaciones_${today.toISOString().split('T')[0]}.csv`;
+        const sDate = start.toISOString().split('T')[0];
+        const eDate = end.toISOString().split('T')[0];
+        const filename = `aprobaciones_${sDate}_${eDate}.csv`;
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -571,6 +602,63 @@ app.post('/api/undo', (req, res) => {
         }
         res.json({ success: true, sku });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ============ WEBHOOK ENDPOINTS ============
+
+/**
+ * POST /api/webhook/publish
+ * Send approved products to external webhook
+ */
+app.post('/api/webhook/publish', authMiddleware, async (req, res) => {
+    try {
+        // Filter only approved decisions
+        const approvedDecisions = db.decisions.filter(d => d.decision === 'approved');
+
+        if (approvedDecisions.length === 0) {
+            return res.json({ success: true, count: 0, message: 'No hay productos aprobados para enviar' });
+        }
+
+        // Map data to the format expected by the webhook (enrich with product details)
+        const payload = approvedDecisions.map(d => {
+            const product = db.products.get(d.sku);
+            return {
+                sku: d.sku,
+                name: product?.name || '',
+                product_url: product?.product_url || '',
+                category: product?.category || '',
+                competitor_price_usd: product?.competitor_price_usd,
+                competitor_price_local: product?.competitor_price_local,
+                current_price_usd: product?.current_price_usd,
+                current_price_local: product?.current_price_local,
+                margin_percentage: product?.margin_percentage,
+                approved_at: d.decided_at,
+                approved_by: d.approved_by,
+                status: 'approved'
+            };
+        });
+
+        // External Webhook URL
+        const WEBHOOK_URL = 'https://integrations.unalukaglobal.com/webhook/output-pricing-model';
+
+        console.log(`📤 Sending ${payload.length} products to webhook: ${WEBHOOK_URL}`);
+
+        const response = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Webhook responded with status: ${response.status}`);
+        }
+
+        res.json({ success: true, count: payload.length });
+
+    } catch (error) {
+        console.error('❌ Webhook error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

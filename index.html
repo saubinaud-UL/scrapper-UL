@@ -30,6 +30,14 @@
             <span>Exportar Aprobaciones</span>
             <span class="export-count" id="export-count">0</span>
         </button>
+        <button class="btn btn-primary" id="btn-apply-changes" title="Enviar aprobados al sistema"
+            style="margin-left: 10px; background-color: var(--color-success); padding: 6px 14px; font-size: 13px; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            </svg>
+            <span>Aplicar Cambios</span>
+        </button>
         <div class="user-menu">
             <div class="user-info">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -240,6 +248,67 @@
                     </button>
                     <button class="btn-primary" id="btn-confirm-action" style="width: auto; padding: 10px 24px;">
                         Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Date Range Modal -->
+    <div class="modal-overlay" id="export-modal">
+        <div class="settings-modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Exportar Aprobaciones
+                </div>
+                <button class="btn-close" id="btn-close-export" title="Cerrar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px; color: var(--color-text-secondary); font-size: 14px;">
+                    Selecciona el rango de fechas para el reporte:
+                </p>
+
+                <div class="date-preset-group">
+                    <button class="btn-preset active" data-range="today">Hoy</button>
+                    <button class="btn-preset" data-range="7days">Últimos 7 días</button>
+                    <button class="btn-preset" data-range="month">Último Mes</button>
+                </div>
+
+                <div class="date-range-inputs">
+                    <div class="date-input-group">
+                        <label for="export-start">Desde</label>
+                        <input type="date" id="export-start">
+                    </div>
+                    <div class="date-input-group">
+                        <label for="export-end">Hasta</label>
+                        <input type="date" id="export-end">
+                    </div>
+                </div>
+
+                <div class="modal-actions"
+                    style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+                    <button class="btn-secondary" id="btn-cancel-export"
+                        style="padding: 10px 20px; border: 1px solid var(--color-border); background: white; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                        Cancelar
+                    </button>
+                    <button class="btn-primary" id="btn-do-export" style="width: auto; padding: 10px 24px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" style="margin-right: 6px;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Descargar CSV
                     </button>
                 </div>
             </div>

@@ -426,6 +426,64 @@ header h1 {
     background: #f1f3f5 !important;
 }
 
+/* ============ EXPORT DATE PICKER ============ */
+.date-preset-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.btn-preset {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--color-border);
+    background: white;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--color-text-secondary);
+}
+
+.btn-preset:hover {
+    background: #f8f9fa;
+    border-color: #ced4da;
+    color: var(--color-text-main);
+}
+
+.btn-preset.active {
+    background: var(--color-primary-blue-bg);
+    border-color: var(--color-primary-blue);
+    color: var(--color-primary-blue);
+    font-weight: 500;
+}
+
+.date-range-inputs {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.date-input-group {
+    flex: 1;
+}
+
+.date-input-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    margin-bottom: 4px;
+}
+
+.date-input-group input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-family: var(--font-main);
+    font-size: 14px;
+}
+
 /* ============ BULK ACTIONS BAR ============ */
 .bulk-actions-bar {
     background: var(--color-bg);
