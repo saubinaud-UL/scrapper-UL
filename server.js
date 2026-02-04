@@ -606,6 +606,63 @@ app.post('/api/undo', (req, res) => {
     }
 });
 
+// ============ WEBHOOK ENDPOINTS ============
+
+/**
+ * POST /api/webhook/publish
+ * Send approved products to external webhook
+ */
+app.post('/api/webhook/publish', authMiddleware, async (req, res) => {
+    try {
+        // Filter only approved decisions
+        const approvedDecisions = db.decisions.filter(d => d.decision === 'approved');
+
+        if (approvedDecisions.length === 0) {
+            return res.json({ success: true, count: 0, message: 'No hay productos aprobados para enviar' });
+        }
+
+        // Map data to the format expected by the webhook (enrich with product details)
+        const payload = approvedDecisions.map(d => {
+            const product = db.products.get(d.sku);
+            return {
+                sku: d.sku,
+                name: product?.name || '',
+                product_url: product?.product_url || '',
+                category: product?.category || '',
+                competitor_price_usd: product?.competitor_price_usd,
+                competitor_price_local: product?.competitor_price_local,
+                current_price_usd: product?.current_price_usd,
+                current_price_local: product?.current_price_local,
+                margin_percentage: product?.margin_percentage,
+                approved_at: d.decided_at,
+                approved_by: d.approved_by,
+                status: 'approved'
+            };
+        });
+
+        // External Webhook URL
+        const WEBHOOK_URL = 'https://integrations.unalukaglobal.com/webhook/output-pricing-model';
+
+        console.log(`📤 Sending ${payload.length} products to webhook: ${WEBHOOK_URL}`);
+
+        const response = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Webhook responded with status: ${response.status}`);
+        }
+
+        res.json({ success: true, count: payload.length });
+
+    } catch (error) {
+        console.error('❌ Webhook error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Start server
 app.listen(PORT, () => {
     console.log(`\n🚀 UnaLuka Price Approval Server running on http://localhost:${PORT}\n`);

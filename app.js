@@ -148,9 +148,55 @@
         setupUndoButton();
         setupBulkActions();
         setupDragSelection();
+        setupDragSelection();
         setupFilterControl();
         setupExportButton();
+        setupApplyChangesButton();
         hideLoadingState();
+    }
+
+    function setupApplyChangesButton() {
+        const btnApply = document.getElementById('btn-apply-changes');
+        if (!btnApply) return;
+
+        btnApply.addEventListener('click', async () => {
+            if (!confirm('¿Estás seguro de que deseas aplicar los cambios? Esto enviará todos los productos aprobados al sistema externo.')) {
+                return;
+            }
+
+            try {
+                btnApply.disabled = true;
+                btnApply.innerHTML = 'Enviando...';
+
+                const response = await fetch(`${API_BASE}/webhook/publish`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(`Éxito: ${result.count} productos enviados`, 'success');
+                } else {
+                    showToast(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error applying changes:', error);
+                showToast('Error de conexión al aplicar cambios', 'error');
+            } finally {
+                btnApply.disabled = false;
+                btnApply.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg>
+                    <span>Aplicar Cambios</span>
+                `;
+            }
+        });
     }
 
     function setupUserMenu() {
@@ -210,7 +256,14 @@
         // Clear selection when filter changes
         selectedSkus.clear();
         updateSelectionUI();
+        updatePendingCountUI();
         renderVisibleRows();
+    }
+
+    function updatePendingCountUI() {
+        if (pendingCount) {
+            pendingCount.textContent = `${products.length} Productos`;
+        }
     }
 
     function setupFilterControl() {
@@ -326,7 +379,11 @@
             const stats = await response.json();
 
             if (pendingCount) {
-                pendingCount.textContent = `${stats.pending_count} Productos`;
+                // Only update if we haven't loaded products yet (initial load)
+                // Otherwise trust the client-side count which reflects filters
+                if (products.length === 0 && allProducts.length === 0) {
+                    pendingCount.textContent = `${stats.pending_count} Productos`;
+                }
             }
             if (lastUpdate && stats.last_update) {
                 const date = new Date(stats.last_update);
@@ -353,6 +410,13 @@
                 if (index > -1) {
                     const removedProduct = products[index];
                     products.splice(index, 1);
+
+                    // Remove from master list too
+                    const masterIndex = allProducts.findIndex(p => p.sku === sku);
+                    if (masterIndex > -1) {
+                        allProducts.splice(masterIndex, 1);
+                    }
+
                     selectedSkus.delete(sku);
 
                     // Solo guardar para undo si no es parte de una acción en lote
@@ -369,6 +433,8 @@
                     if (decision === 'approved') {
                         updateExportCount();
                     }
+
+                    updatePendingCountUI();
 
                     return removedProduct;
                 }
@@ -868,14 +934,18 @@
 
             if (allSuccess) {
                 // Re-agregar todos los productos
-                lastAction.products.forEach(product => {
-                    products.unshift(product);
-                });
+                const restoredProducts = lastAction.products;
 
-                renderVisibleRows();
+                // Agregar al inicio de allProducts también para persistencia
+                allProducts.unshift(...restoredProducts);
+
+                // Re-aplicar filtro para determinar visibilidad y actualizar contadores
+                applyFilter();
+
+                // loadStats solo para actualizar timestamp
                 loadStats();
 
-                const count = lastAction.products.length;
+                const count = restoredProducts.length;
                 if (count === 1) {
                     showToast(`Deshecho: ${lastAction.products[0].sku} volvió a pendientes`, 'success');
                 } else {
