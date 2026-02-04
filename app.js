@@ -148,7 +148,6 @@
         setupUndoButton();
         setupBulkActions();
         setupDragSelection();
-        setupDragSelection();
         setupFilterControl();
         setupExportButton();
         setupApplyChangesButton();
@@ -359,13 +358,155 @@
     }
 
     function setupExportButton() {
-        if (!btnExport) return;
+        const exportDropdown = document.getElementById('export-dropdown');
+        const exportMenu = document.getElementById('export-dropdown-menu');
 
-        btnExport.addEventListener('click', () => {
-            openExportModal();
+        if (!exportDropdown || !btnExport) return;
+
+        // Toggle dropdown on button click
+        btnExport.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exportDropdown.classList.toggle('open');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!exportDropdown.contains(e.target)) {
+                exportDropdown.classList.remove('open');
+            }
+        });
+
+        // Handle option clicks
+        const options = exportMenu.querySelectorAll('.export-option');
+        options.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const type = option.dataset.type;
+                exportDropdown.classList.remove('open');
+
+                if (type === 'approvals') {
+                    openExportModal();
+                } else if (type === 'juntoz' || type === 'ripley') {
+                    exportMarketplace(type);
+                }
+            });
         });
 
         setupExportModal();
+    }
+
+    // ============ MARKETPLACE EXPORT ============
+    function cleanPrice(priceStr) {
+        // Remove S/, S/, commas, spaces and convert to float
+        if (typeof priceStr === 'number') return priceStr;
+        if (!priceStr) return 0;
+        return parseFloat(String(priceStr).replace(/[S\/,\s]/g, '').trim()) || 0;
+    }
+
+    async function exportMarketplace(type) {
+        try {
+            // Fetch approved products from API
+            const response = await fetch(`${API_BASE}/export/approvals?format=json`, {
+                headers: getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                showToast('Error al obtener productos aprobados', 'error');
+                return;
+            }
+
+            const approvedProducts = await response.json();
+
+            if (!approvedProducts || approvedProducts.length === 0) {
+                showToast('No hay productos aprobados para exportar', 'error');
+                return;
+            }
+
+            let headers, rows, filename;
+
+            if (type === 'juntoz') {
+                // Juntoz (Agora) headers - exactly 7 columns
+                headers = [
+                    'Nombre de producto',
+                    'SKU',
+                    'UPC',
+                    'Precio regular',
+                    'Precio con descuento',
+                    'Fecha de validez del descuento desde (año-mes-día)',
+                    'Fecha de validez del descuento hasta (año-mes-día)'
+                ];
+
+                rows = approvedProducts.map(item => [
+                    item.name || '',                            // Nombre de producto
+                    item.sku || '',                             // SKU
+                    '',                                          // UPC - vacío
+                    cleanPrice(item.new_price_local),           // Precio regular - precio aprobado en Soles
+                    '',                                          // Precio con descuento - vacío
+                    '',                                          // Fecha desde - vacío
+                    ''                                           // Fecha hasta - vacío
+                ]);
+
+                filename = `juntoz_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+            } else if (type === 'ripley') {
+                // Ripley (Mirakl) headers - exactly 17 columns
+                headers = [
+                    'SKU de oferta',
+                    'ID de producto',
+                    'Tipo de ID de producto',
+                    'Descripción de la oferta',
+                    'Descripción interna de la oferta',
+                    'Precio de la oferta',
+                    'Información adicional sobre el precio de la oferta',
+                    'Cantidad de la oferta',
+                    'Alerta de cantidad mínima',
+                    'Estado de la oferta',
+                    'Fecha de inicio de la disponibilidad',
+                    'Fecha de finalización de la disponibilidad',
+                    'Clase logística',
+                    'Precio de descuento',
+                    'Fecha de inicio del descuento',
+                    'Fecha de finalización del descuento',
+                    'Actualizar/Eliminar'
+                ];
+
+                rows = approvedProducts.map(item => [
+                    item.sku || '',                             // SKU de oferta
+                    '',                                          // ID de producto - vacío
+                    '',                                          // Tipo de ID de producto - vacío
+                    item.name || '',                            // Descripción de la oferta
+                    '',                                          // Descripción interna - vacío
+                    cleanPrice(item.new_price_local),           // Precio de la oferta
+                    '',                                          // Info adicional precio - vacío
+                    '',                                          // Cantidad - vacío
+                    '',                                          // Alerta cantidad - vacío
+                    '',                                          // Estado - vacío
+                    '',                                          // Fecha inicio disponibilidad - vacío
+                    '',                                          // Fecha fin disponibilidad - vacío
+                    '',                                          // Clase logística - vacío
+                    '',                                          // Precio descuento - vacío
+                    '',                                          // Fecha inicio descuento - vacío
+                    '',                                          // Fecha fin descuento - vacío
+                    ''                                           // Actualizar/Eliminar - vacío
+                ]);
+
+                filename = `ripley_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            }
+
+            // Generate Excel using SheetJS
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Precios');
+
+            // Download file
+            XLSX.writeFile(wb, filename);
+
+            showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} exportado (${approvedProducts.length} productos)`, 'success');
+
+        } catch (error) {
+            console.error('Error exporting marketplace template:', error);
+            showToast('Error al exportar', 'error');
+        }
     }
 
     // Update export count after each approval
@@ -590,7 +731,15 @@
                     </label>
                 </div>
                 <div class="col-sku">${escapeHtml(product.sku)}</div>
-                <div class="col-name" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</div>
+                <div class="col-name" title="${escapeHtml(product.name)}">
+                    ${product.product_url
+                ? `<a href="${escapeHtml(product.product_url)}" target="_blank" rel="noopener noreferrer" class="product-link">${escapeHtml(product.name)}</a>`
+                : escapeHtml(product.name)
+            }
+                </div>
+                <div class="col-category">
+                    <span class="category-badge">${escapeHtml(product.category || 'Sin categoría')}</span>
+                </div>
                 <div class="col-amazon">
                     <span class="price-usd">$${formatPrice(product.competitor_price_usd)}</span>
                     <span class="price-local">S/ ${formatPrice(product.competitor_price_local)}</span>
@@ -973,12 +1122,12 @@
         const SCROLL_ZONE = 60;
 
         container.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.btn-row, .checkbox-wrapper, button, input')) return;
+            if (e.target.closest('.btn-row, .checkbox-wrapper, button, input, a')) return;
             if (e.button !== 0) return;
 
             isDragging = true;
-            dragStart = { x: e.clientX, y: e.clientY + window.scrollY };
-            currentMousePos = { x: e.clientX, y: e.clientY };
+            dragStart = { x: e.pageX, y: e.pageY };
+            currentMousePos = { x: e.pageX, y: e.pageY };
             selectionBeforeDrag = new Set(selectedSkus);
 
             container.classList.add('selecting');
@@ -986,11 +1135,12 @@
 
             updateSelectionRect();
             startAutoScroll();
+            e.preventDefault();
         });
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            currentMousePos = { x: e.clientX, y: e.clientY };
+            currentMousePos = { x: e.pageX, y: e.pageY };
             updateSelectionRect();
             selectRowsInRect();
         });
@@ -1021,10 +1171,11 @@
             autoScrollInterval = setInterval(() => {
                 if (!isDragging) { stopAutoScroll(); return; }
                 const vh = window.innerHeight;
-                if (currentMousePos.y > vh - SCROLL_ZONE) {
-                    window.scrollBy(0, Math.min(SCROLL_SPEED, (currentMousePos.y - (vh - SCROLL_ZONE)) / 2));
-                } else if (currentMousePos.y < SCROLL_ZONE + 150) {
-                    window.scrollBy(0, -Math.min(SCROLL_SPEED, (SCROLL_ZONE + 150 - currentMousePos.y) / 2));
+                const clientY = currentMousePos.y - window.scrollY;
+                if (clientY > vh - SCROLL_ZONE) {
+                    window.scrollBy(0, Math.min(SCROLL_SPEED, (clientY - (vh - SCROLL_ZONE)) / 2));
+                } else if (clientY < SCROLL_ZONE + 150) {
+                    window.scrollBy(0, -Math.min(SCROLL_SPEED, (SCROLL_ZONE + 150 - clientY) / 2));
                 }
             }, 16);
         }
@@ -1034,11 +1185,10 @@
         }
 
         function updateSelectionRect() {
-            const currentY = currentMousePos.y + window.scrollY;
-            const left = Math.min(dragStart.x, currentMousePos.x);
-            const top = Math.min(dragStart.y, currentY) - window.scrollY;
+            const left = Math.min(dragStart.x, currentMousePos.x) - window.scrollX;
+            const top = Math.min(dragStart.y, currentMousePos.y) - window.scrollY;
             const width = Math.abs(currentMousePos.x - dragStart.x);
-            const height = Math.abs(currentY - dragStart.y);
+            const height = Math.abs(currentMousePos.y - dragStart.y);
             selectionArea.style.left = `${left}px`;
             selectionArea.style.top = `${top}px`;
             selectionArea.style.width = `${width}px`;

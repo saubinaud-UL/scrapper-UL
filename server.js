@@ -553,6 +553,8 @@ app.post('/api/seed', (req, res) => {
             db.products.set(sku, {
                 sku,
                 name: `${brand} ${product} ${variant} - Modelo ${i}`,
+                product_url: `https://amazon.com/dp/${sku.replace(/-/g, '')}`,
+                category: 'Tech',
                 competitor_price_usd: competitorPrice,
                 competitor_price_local: Math.round(competitorPrice * 3.8),
                 current_price_usd: currentPrice,

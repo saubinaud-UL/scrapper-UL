@@ -129,6 +129,85 @@ header h1 {
     font-weight: 700;
 }
 
+/* ============ EXPORT DROPDOWN ============ */
+.export-dropdown {
+    position: relative;
+    display: inline-block;
+    margin-left: auto;
+}
+
+.export-dropdown .btn-export {
+    margin-left: 0;
+}
+
+.dropdown-arrow {
+    transition: transform 0.2s ease;
+}
+
+.export-dropdown.open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.export-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    min-width: 260px;
+    padding: 8px;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+}
+
+.export-dropdown.open .export-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.export-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--font-main);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-main);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.export-option:hover {
+    background: #f0f7ff;
+    color: var(--color-primary-blue);
+}
+
+.export-option svg {
+    flex-shrink: 0;
+    color: var(--color-text-secondary);
+}
+
+.export-option:hover svg {
+    color: var(--color-primary-blue);
+}
+
+.export-option .export-count {
+    margin-left: auto;
+    background: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+}
+
 .export-count.has-items {
     background: white;
     color: #28a745;
@@ -841,36 +920,23 @@ header h1 {
 
 /* Grid column definitions using CSS variables for consistency */
 :root {
-    --table-gap: 24px;
-    /* Uniform gap between all columns */
+    --table-gap: 1.5rem;
+    /* Gap constante entre TODAS las columnas */
     --col-checkbox: 40px;
-    --col-sku: minmax(100px, 130px);
-    --col-name: minmax(200px, 1fr);
-    --col-price: minmax(120px, 150px);
-    --col-badge: minmax(80px, 100px);
-    --col-actions: minmax(160px, 200px);
+    --col-sku: 110px;
+    --col-name: 220px;
+    --col-category: 80px;
+    --col-price: 110px;
+    --col-badge: 90px;
+    --col-actions: 180px;
 }
 
 .table-header {
     display: grid;
-    grid-template-columns:
-        var(--col-checkbox)
-        /* Checkbox */
-        var(--col-sku)
-        /* SKU */
-        var(--col-name)
-        /* Producto */
-        var(--col-price)
-        /* Precio Amazon */
-        var(--col-price)
-        /* Precio UnaLuka */
-        var(--col-badge)
-        /* Variación */
-        var(--col-badge)
-        /* Margen */
-        var(--col-actions);
-    /* Acciones */
-    gap: var(--table-gap);
+    /* Exact grid: 40px 120px 1fr 100px 120px 120px 100px 100px 200px */
+    grid-template-columns: 40px 120px 1fr 100px 120px 120px 100px 100px 200px;
+    gap: 16px;
+    /* gap-x-4 consistente */
     padding: 16px 24px;
     background: #f8f9fa;
     border-radius: 12px 12px 0 0;
@@ -880,6 +946,7 @@ header h1 {
     text-transform: uppercase;
     color: var(--color-text-secondary);
     letter-spacing: 0.5px;
+    align-items: center;
 }
 
 .table-body {
@@ -893,9 +960,10 @@ header h1 {
 /* ============ ROW STYLES ============ */
 .product-row {
     display: grid;
-    grid-template-columns:
-        var(--col-checkbox) var(--col-sku) var(--col-name) var(--col-price) var(--col-price) var(--col-badge) var(--col-badge) var(--col-actions);
-    gap: var(--table-gap);
+    /* Exact grid: 40px 120px 1fr 100px 120px 120px 100px 100px 200px */
+    grid-template-columns: 40px 120px 1fr 100px 120px 120px 100px 100px 200px;
+    gap: 16px;
+    /* gap-x-4 consistente */
     padding: 16px 24px;
     align-items: center;
     border-bottom: 1px solid var(--color-border);
@@ -926,6 +994,10 @@ header h1 {
     font-weight: 600;
     color: var(--color-text-secondary);
     font-family: monospace;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .col-name {
@@ -936,6 +1008,34 @@ header h1 {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-align: left;
+}
+
+.col-name .product-link {
+    color: var(--color-primary-blue);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.col-name .product-link:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+.col-category {
+    text-align: left;
+}
+
+.category-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: #e3f2fd;
+    color: #1565c0;
 }
 
 .col-amazon,
@@ -951,8 +1051,10 @@ header h1 {
 }
 
 .price-local {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--color-text-secondary);
+    display: block;
+    text-align: right;
 }
 
 .col-amazon .price-usd {
@@ -1068,32 +1170,36 @@ header h1 {
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1400px) {
     :root {
-        --table-gap: 20px;
-        --col-sku: minmax(90px, 120px);
-        --col-price: minmax(110px, 140px);
-        --col-badge: minmax(75px, 95px);
-        --col-actions: minmax(150px, 180px);
+        /* Gap constante, anchos reducidos */
+        --col-sku: 100px;
+        --col-name: 180px;
+        --col-category: 70px;
+        --col-price: 100px;
+        --col-badge: 80px;
+        --col-actions: 165px;
     }
 
     .table-header,
     .product-row {
-        padding: 14px 20px;
+        padding: 14px 16px;
     }
 }
 
 @media (max-width: 1200px) {
     :root {
-        --table-gap: 16px;
+        /* Gap constante, anchos mínimos */
         --col-checkbox: 36px;
-        --col-sku: minmax(80px, 110px);
-        --col-price: minmax(100px, 130px);
-        --col-badge: minmax(70px, 90px);
-        --col-actions: minmax(140px, 170px);
+        --col-sku: 90px;
+        --col-name: 150px;
+        --col-category: 60px;
+        --col-price: 90px;
+        --col-badge: 70px;
+        --col-actions: 150px;
     }
 
     .table-header,
     .product-row {
-        padding: 12px 16px;
+        padding: 12px 12px;
     }
 }
 
